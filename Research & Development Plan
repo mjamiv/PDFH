@@ -1,0 +1,489 @@
+# PDFH: PDF with HTML Metadata
+
+## Research & Development Plan
+
+-----
+
+## Executive Summary
+
+PDFH is a proposed file format extension that embeds structured HTML content within standard PDF files. The goal: eliminate redundant OCR processing by preserving the original rich text data alongside the visual rendering, while maintaining full backward compatibility with existing PDF viewers.
+
+**Core insight**: PDFs are created from rich source data (Word docs, HTML, LaTeX) but flatten everything to visual primitives. AI systems then waste billions of compute cycles reconstructing what was already known.
+
+-----
+
+## Part 1: Technical Foundation Research
+
+### 1.1 PDF Specification Analysis
+
+**Objective**: Identify the optimal mechanism for embedding HTML within the PDF spec (ISO 32000-2:2020).
+
+**Research areas**:
+
+1. **Embedded File Streams** (PDF 1.3+)
+- `/EmbeddedFiles` name tree in the document catalog
+- Can attach any file type with MIME typing
+- Already used for PDF/A-3 attachments
+- Pros: Well-supported, no spec changes needed
+- Cons: Not all viewers surface attachments prominently
+1. **Associated Files (PDF 2.0)**
+- `/AF` key allows semantic association between embedded files and PDF objects
+- `/AFRelationship` can specify relationship type (Source, Data, Alternative)
+- Could map HTML sections to specific PDF pages/regions
+1. **XMP Metadata Streams**
+- Extensible Metadata Platform (ISO 16684)
+- Already standard for PDF metadata
+- Could embed HTML in custom namespace
+- Size limitations may apply
+1. **Marked Content / Tagged PDF**
+- Existing structure for accessibility
+- Could be extended rather than replaced
+- Investigate relationship between Tagged PDF and proposed HTML layer
+
+**Deliverable**: Technical specification document comparing embedding approaches with compatibility matrices across major PDF libraries.
+
+-----
+
+### 1.2 HTML Representation Design
+
+**Objective**: Define the HTML schema that maximizes AI utility while minimizing file size overhead.
+
+**Key decisions**:
+
+1. **Granularity level**
+- Full document HTML vs. page-by-page fragments
+- Recommendation: Page-aligned fragments with cross-references
+1. **Schema constraints**
+- Subset of HTML5 (semantic elements only?)
+- Required elements: headings, paragraphs, lists, tables, links
+- Optional: images (as references), forms, code blocks
+1. **Coordinate mapping**
+- How to link HTML elements to PDF regions
+- Bounding box references using PDF coordinate system
+- Enable: “Extract text from this region” → returns structured HTML
+1. **Encoding**
+- UTF-8 required
+- Compression: Flate (already in PDF) vs. separate gzip
+- Estimate overhead: typically 5-15% of PDF size
+
+**Proposed structure**:
+
+```xml
+<pdfh:content xmlns:pdfh="https://pdfh.org/2025/schema"
+              version="1.0"
+              pages="12">
+  <pdfh:page number="1">
+    <pdfh:region bbox="72,720,540,680">
+      <h1>Document Title</h1>
+    </pdfh:region>
+    <pdfh:region bbox="72,650,540,100">
+      <p>First paragraph with <strong>emphasis</strong> and 
+         <a href="#page3-ref1">internal reference</a>.</p>
+    </pdfh:region>
+  </pdfh:page>
+</pdfh:content>
+```
+
+-----
+
+### 1.3 Existing Technology Audit
+
+**Objective**: Understand what already exists and where PDFH fits.
+
+**Technologies to evaluate**:
+
+|Technology          |What it does                |Gap PDFH fills                  |
+|--------------------|----------------------------|--------------------------------|
+|Tagged PDF (PDF/UA) |Accessibility structure tree|Not HTML; limited tooling; lossy|
+|PDF/A-3             |Allows embedded files       |No semantic standard for AI use |
+|XMP                 |Metadata embedding          |Not designed for full content   |
+|mPDF, wkhtmltopdf   |HTML → PDF conversion       |One-way; doesn’t preserve source|
+|pdf2htmlEX          |PDF → HTML extraction       |Reverse direction; lossy        |
+|Document AI (Google)|PDF understanding           |Compute-intensive; the problem  |
+
+**Key finding to validate**: No existing standard preserves round-trip rich text in a way optimized for machine consumption.
+
+-----
+
+## Part 2: Specification Development
+
+### 2.1 PDFH Specification v0.1
+
+**Document structure**:
+
+1. **File identification**
+- Magic bytes / markers for PDFH detection
+- Version identification in XMP metadata
+- MIME type registration: `application/pdfh+pdf`
+1. **Embedding requirements**
+- Location: `/EmbeddedFiles` with name `pdfh-content.html`
+- Relationship: `/AFRelationship /Source`
+- Compression: Flate stream (matches PDF convention)
+1. **HTML content requirements**
+- Valid HTML5 fragment or document
+- UTF-8 encoding
+- PDFH namespace for coordinate mapping
+- Semantic elements preferred over presentational
+1. **Coordinate system**
+- Uses PDF user space (72 units/inch, origin bottom-left)
+- Bounding boxes: [x1, y1, x2, y2] format
+- Page references: 1-indexed
+1. **Validation**
+- Schema for PDFH-specific extensions
+- Conformance levels (like PDF/A):
+  - PDFH-1a: Full coordinate mapping
+  - PDFH-1b: Document-level HTML only
+
+**Deliverable**: Formal specification document suitable for public comment.
+
+-----
+
+### 2.2 Extension Points
+
+Design for future capabilities:
+
+- **Multilingual content**: `xml:lang` attributes
+- **Mathematical notation**: MathML embedding
+- **Citations/references**: Structured bibliography data
+- **Form data**: Pre-filled form values
+- **Redaction markers**: Indicate intentionally removed content
+- **Confidence scores**: For AI-generated PDFH (retrofitting)
+
+-----
+
+## Part 3: Implementation Roadmap
+
+### Phase 1: Proof of Concept (Months 1-3)
+
+**Goal**: Demonstrate technical feasibility.
+
+**Deliverables**:
+
+1. **pdfh-write**: Python library to create PDFH files
+- Input: HTML + optional CSS
+- Output: Valid PDF with embedded HTML
+- Dependencies: ReportLab or PyMuPDF + BeautifulSoup
+1. **pdfh-read**: Python library to extract HTML from PDFH
+- Detect PDFH presence
+- Extract and parse embedded HTML
+- Validate against schema
+1. **Test corpus**: 100 sample PDFH files
+- Variety of document types (reports, papers, forms)
+- Edge cases (RTL text, tables, images)
+1. **Compatibility testing**
+- Verify files open correctly in:
+  - Adobe Acrobat
+  - Preview (macOS)
+  - Chrome/Edge built-in viewer
+  - Firefox PDF.js
+  - Evince, Okular (Linux)
+
+**Success criteria**: PDFH files indistinguishable from regular PDFs in all tested viewers; HTML extraction works reliably.
+
+-----
+
+### Phase 2: Toolchain Development (Months 4-8)
+
+**Goal**: Make PDFH creation practical.
+
+**Tools to build**:
+
+1. **Conversion utilities**
+   
+   ```
+   pdfh convert document.docx → document.pdfh
+   pdfh convert page.html → page.pdfh
+   pdfh convert paper.tex → paper.pdfh
+   ```
+1. **Retrofit tool** (AI-assisted)
+   
+   ```
+   pdfh retrofit legacy.pdf → legacy.pdfh
+   ```
+- Uses existing OCR/Document AI
+- Embeds extracted structure as HTML
+- Marks as “reconstructed” vs “original”
+1. **Validation tool**
+   
+   ```
+   pdfh validate document.pdfh
+   ```
+- Checks conformance level
+- Reports coordinate mapping coverage
+- Estimates AI processing savings
+1. **Browser extension**
+- Detect PDFH files
+- Offer “View as HTML” option
+- Copy-as-rich-text from PDF regions
+
+**Integration targets**:
+
+- Pandoc (universal document converter)
+- LibreOffice export option
+- LaTeX packages (pdflatex, XeTeX)
+- Print-to-PDF drivers
+
+-----
+
+### Phase 3: Ecosystem & Adoption (Months 9-18)
+
+**Goal**: Drive adoption through demonstrated value.
+
+**Initiatives**:
+
+1. **AI framework integration**
+- LangChain document loader
+- LlamaIndex reader
+- Hugging Face datasets compatibility
+- OpenAI file upload recognition
+1. **Benchmark publication**
+- Compare processing costs: PDFH vs standard PDF
+- Metrics: tokens saved, latency reduction, accuracy improvement
+- Target: 10-100x efficiency gain for structured documents
+1. **Standards track**
+- Submit to PDF Association for review
+- Propose as ISO 32000 extension
+- Coordinate with W3C (HTML) and accessibility communities
+1. **Adoption partnerships**
+- Academic publishers (arXiv, journals)
+- Government document systems
+- Enterprise document management vendors
+- Browser vendors (native PDFH support)
+
+-----
+
+## Part 4: Governance & Sustainability
+
+### 4.1 Open Standard Principles
+
+- Specification: Creative Commons Attribution 4.0
+- Reference implementation: MIT or Apache 2.0 license
+- Patent: Defensive patent pledge (no enforcement against implementers)
+- Governance: Independent foundation or PDF Association working group
+
+### 4.2 Versioning Strategy
+
+- Semantic versioning for specification
+- Backward compatibility guaranteed within major versions
+- Clear deprecation process for removed features
+
+### 4.3 Sustainability Model
+
+- Foundation membership fees (enterprise tier)
+- Certification program for conformance testing
+- Training/consulting partnerships
+- No licensing fees for basic implementation
+
+-----
+
+## Part 5: Risk Analysis
+
+|Risk                                |Likelihood|Impact|Mitigation                                                      |
+|------------------------------------|----------|------|----------------------------------------------------------------|
+|Low adoption                        |Medium    |High  |Focus on AI cost savings ROI; target high-volume use cases first|
+|PDF spec incompatibility            |Low       |High  |Use only existing, well-tested embedding mechanisms             |
+|Competing standard emerges          |Medium    |Medium|Engage early with PDF Association; be willing to merge          |
+|Security concerns (embedded content)|Medium    |Medium|Sandboxing guidance; validator tools; CSP-like restrictions     |
+|Viewer compatibility issues         |Low       |Medium|Extensive testing; graceful degradation                         |
+|HTML complexity creep               |Medium    |Low   |Strict conformance levels; minimal viable schema                |
+
+-----
+
+## Part 6: Success Metrics
+
+**Technical**:
+
+- 100% backward compatibility with PDF viewers
+- <20% file size overhead for typical documents
+- <1ms extraction time for HTML content
+
+**Adoption** (18-month targets):
+
+- 10+ major tools support PDFH creation
+- 3+ AI frameworks with native PDFH support
+- 1M+ PDFH files in public datasets
+- Formal standards body engagement
+
+**Impact**:
+
+- Measurable reduction in document AI processing costs
+- Improved accuracy for structured document understanding
+- Accessibility improvements (HTML more parseable than PDF structure)
+
+-----
+
+## Appendix A: Quick Start Implementation Sketch
+
+```python
+# pdfh_writer.py - Minimal proof of concept
+
+import io
+from pypdf import PdfWriter, PdfReader
+from pypdf.generic import (
+    DictionaryObject, ArrayObject, NameObject, 
+    TextStringObject, ByteStringObject, DecodedStreamObject
+)
+
+def create_pdfh(pdf_bytes: bytes, html_content: str) -> bytes:
+    """Embed HTML content into an existing PDF."""
+    
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    writer = PdfWriter()
+    
+    # Copy all pages
+    for page in reader.pages:
+        writer.add_page(page)
+    
+    # Create embedded file stream
+    html_bytes = html_content.encode('utf-8')
+    
+    ef_stream = DecodedStreamObject()
+    ef_stream.set_data(html_bytes)
+    ef_stream.update({
+        NameObject("/Type"): NameObject("/EmbeddedFile"),
+        NameObject("/Subtype"): NameObject("/text/html"),
+    })
+    
+    # Create file specification
+    filespec = DictionaryObject({
+        NameObject("/Type"): NameObject("/Filespec"),
+        NameObject("/F"): TextStringObject("pdfh-content.html"),
+        NameObject("/EF"): DictionaryObject({
+            NameObject("/F"): writer._add_object(ef_stream)
+        }),
+        NameObject("/AFRelationship"): NameObject("/Source"),
+        NameObject("/Desc"): TextStringObject("PDFH structured content")
+    })
+    
+    # Add to embedded files
+    filespec_ref = writer._add_object(filespec)
+    
+    # Update catalog
+    if "/Names" not in writer._root_object:
+        writer._root_object[NameObject("/Names")] = DictionaryObject()
+    
+    names = writer._root_object["/Names"]
+    names[NameObject("/EmbeddedFiles")] = DictionaryObject({
+        NameObject("/Names"): ArrayObject([
+            TextStringObject("pdfh-content.html"),
+            filespec_ref
+        ])
+    })
+    
+    # Add XMP metadata marker
+    # (simplified - production would use proper XMP)
+    
+    output = io.BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def extract_pdfh(pdf_bytes: bytes) -> str | None:
+    """Extract HTML content from a PDFH file."""
+    
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    
+    if "/Names" not in reader.trailer["/Root"]:
+        return None
+    
+    names = reader.trailer["/Root"]["/Names"]
+    if "/EmbeddedFiles" not in names:
+        return None
+    
+    ef = names["/EmbeddedFiles"]
+    names_array = ef.get("/Names", [])
+    
+    for i in range(0, len(names_array), 2):
+        name = str(names_array[i])
+        if name == "pdfh-content.html":
+            filespec = names_array[i + 1].get_object()
+            ef_dict = filespec["/EF"]
+            stream = ef_dict["/F"].get_object()
+            return stream.get_data().decode('utf-8')
+    
+    return None
+```
+
+-----
+
+## Appendix B: Example PDFH HTML Content
+
+```html
+<!DOCTYPE html>
+<html lang="en" xmlns:pdfh="https://pdfh.org/2025/schema">
+<head>
+  <meta charset="UTF-8">
+  <meta name="pdfh:version" content="1.0">
+  <meta name="pdfh:conformance" content="PDFH-1a">
+  <meta name="pdfh:generator" content="pdfh-tools/0.1.0">
+  <title>Quarterly Report Q3 2025</title>
+</head>
+<body>
+
+<article pdfh:page="1">
+  <header pdfh:bbox="72,720,540,680">
+    <h1>Quarterly Financial Report</h1>
+    <p class="subtitle">Q3 2025 | Acme Corporation</p>
+  </header>
+  
+  <section pdfh:bbox="72,650,540,400">
+    <h2>Executive Summary</h2>
+    <p>Revenue increased <strong>23%</strong> year-over-year, 
+       driven by expansion in the <em>enterprise segment</em>.</p>
+    <p>Key highlights:</p>
+    <ul>
+      <li>Total revenue: <data value="4200000000">$4.2B</data></li>
+      <li>Operating margin: <data value="0.18">18%</data></li>
+      <li>New customers: <data value="1247">1,247</data></li>
+    </ul>
+  </section>
+</article>
+
+<article pdfh:page="2">
+  <section pdfh:bbox="72,720,540,300">
+    <h2>Financial Details</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Q3 2024</th>
+          <th>Q3 2025</th>
+          <th>Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Revenue</td>
+          <td>$3.4B</td>
+          <td>$4.2B</td>
+          <td>+23%</td>
+        </tr>
+        <tr>
+          <td>Gross Profit</td>
+          <td>$2.1B</td>
+          <td>$2.7B</td>
+          <td>+29%</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</article>
+
+</body>
+</html>
+```
+
+-----
+
+## Next Steps
+
+1. **Immediate**: Validate PDF embedding approach with prototype
+1. **Week 1-2**: Build minimal pdfh-write/pdfh-read libraries
+1. **Week 3-4**: Create test corpus and compatibility matrix
+1. **Month 2**: Draft formal specification v0.1
+1. **Month 3**: Publish proof of concept and gather feedback
+
+-----
+
+*Document version: 1.0*  
+*Last updated: January 2026*
