@@ -1,9 +1,8 @@
 /**
  * PDFH Reader
- * Extracts HTML content from PDFH files
+ * Extracts HTML content from PDFH files using pdfjs-dist for proper decompression
  */
 
-import { PDFDocument, PDFDict, PDFName, PDFArray, PDFStream, PDFHexString, PDFString } from 'pdf-lib';
 import {
   PdfhContent,
   PdfhReaderResult,
@@ -14,13 +13,23 @@ import {
 } from '../../types/pdfh';
 import { extractPdfhMetadata, extractBodyContent } from './schema';
 
+// Dynamically import pdfjs-dist
+let pdfjsLib: typeof import('pdfjs-dist') | null = null;
+
+const getPdfJs = async () => {
+  if (!pdfjsLib) {
+    pdfjsLib = await import('pdfjs-dist');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`;
+  }
+  return pdfjsLib;
+};
+
 /**
  * Check if a PDF file is a PDFH file
  */
 export async function isPdfhFile(pdfBytes: Uint8Array): Promise<boolean> {
   try {
-    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-    const embeddedFiles = await getEmbeddedFiles(pdfDoc);
+    const embeddedFiles = await getEmbeddedFilesWithPdfJs(pdfBytes);
     return embeddedFiles.some(file => file.name === PDFH_EMBEDDED_FILENAME);
   } catch {
     return false;
@@ -32,10 +41,12 @@ export async function isPdfhFile(pdfBytes: Uint8Array): Promise<boolean> {
  */
 export async function extractPdfh(pdfBytes: Uint8Array): Promise<PdfhReaderResult> {
   try {
-    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+    const pdfjs = await getPdfJs();
+    const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+    const pdfDoc = await loadingTask.promise;
 
-    // Get embedded files
-    const embeddedFiles = await getEmbeddedFiles(pdfDoc);
+    // Get embedded files using pdfjs (handles decompression)
+    const embeddedFiles = await getEmbeddedFilesWithPdfJs(pdfBytes);
 
     // Find the PDFH content file
     const pdfhFile = embeddedFiles.find(file => file.name === PDFH_EMBEDDED_FILENAME);
@@ -50,26 +61,28 @@ export async function extractPdfh(pdfBytes: Uint8Array): Promise<PdfhReaderResul
     // Decode HTML content
     const html = new TextDecoder().decode(pdfhFile.data);
 
-    // Extract metadata
-    const metadata = extractPdfhMetadata(html);
+    // Extract metadata from HTML
+    const htmlMetadata = extractPdfhMetadata(html);
+
+    // Get PDF metadata
+    const metadata = await pdfDoc.getMetadata();
 
     // Get page information
-    const pages = getPageInfo(pdfDoc);
+    const pages = await getPageInfoWithPdfJs(pdfDoc);
 
     // Build content object
+    const pdfInfo = metadata.info as Record<string, unknown> | undefined;
     const content: PdfhContent = {
       html,
-      version: metadata.version || PDFH_VERSION,
-      conformanceLevel: metadata.conformanceLevel || 'PDFH-1b',
+      version: htmlMetadata.version || PDFH_VERSION,
+      conformanceLevel: htmlMetadata.conformanceLevel || 'PDFH-1b',
       pages,
       metadata: {
-        title: pdfDoc.getTitle() || undefined,
-        author: pdfDoc.getAuthor() || undefined,
-        subject: pdfDoc.getSubject() || undefined,
-        creationDate: pdfDoc.getCreationDate() || undefined,
-        modificationDate: pdfDoc.getModificationDate() || undefined,
-        creator: pdfDoc.getCreator() || undefined,
-        producer: pdfDoc.getProducer() || undefined,
+        title: (pdfInfo?.Title as string) || undefined,
+        author: (pdfInfo?.Author as string) || undefined,
+        subject: (pdfInfo?.Subject as string) || undefined,
+        creator: (pdfInfo?.Creator as string) || undefined,
+        producer: (pdfInfo?.Producer as string) || undefined,
       },
     };
 
@@ -102,76 +115,32 @@ export async function extractBodyHtml(pdfBytes: Uint8Array): Promise<string | nu
 }
 
 /**
- * Get list of embedded files from a PDF document
+ * Get list of embedded files from a PDF using pdfjs-dist
+ * This properly handles decompression of embedded file streams
  */
-async function getEmbeddedFiles(pdfDoc: PDFDocument): Promise<Array<{ name: string; data: Uint8Array }>> {
+async function getEmbeddedFilesWithPdfJs(pdfBytes: Uint8Array): Promise<Array<{ name: string; data: Uint8Array }>> {
   const embeddedFiles: Array<{ name: string; data: Uint8Array }> = [];
 
   try {
-    const catalog = pdfDoc.catalog;
-    const namesDict = catalog.lookup(PDFName.of('Names')) as PDFDict | undefined;
+    const pdfjs = await getPdfJs();
+    const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+    const pdfDoc = await loadingTask.promise;
 
-    if (!namesDict) {
-      return embeddedFiles;
-    }
+    // Get the document's attachment list
+    const attachments = await pdfDoc.getAttachments();
 
-    const embeddedFilesDict = namesDict.lookup(PDFName.of('EmbeddedFiles')) as PDFDict | undefined;
-
-    if (!embeddedFilesDict) {
-      return embeddedFiles;
-    }
-
-    // Get the Names array directly or from Kids
-    let namesArray = embeddedFilesDict.lookup(PDFName.of('Names')) as PDFArray | undefined;
-
-    if (!namesArray) {
-      // Try to get from Kids
-      const kids = embeddedFilesDict.lookup(PDFName.of('Kids')) as PDFArray | undefined;
-      if (kids && kids.size() > 0) {
-        const firstKid = kids.lookup(0) as PDFDict | undefined;
-        if (firstKid) {
-          namesArray = firstKid.lookup(PDFName.of('Names')) as PDFArray | undefined;
+    if (attachments) {
+      for (const [filename, attachment] of Object.entries(attachments)) {
+        if (attachment && typeof attachment === 'object' && 'content' in attachment) {
+          const content = (attachment as any).content;
+          if (content instanceof Uint8Array) {
+            embeddedFiles.push({
+              name: filename,
+              data: content,
+            });
+          }
         }
       }
-    }
-
-    if (!namesArray) {
-      return embeddedFiles;
-    }
-
-    // Process name-value pairs
-    for (let i = 0; i < namesArray.size(); i += 2) {
-      const nameObj = namesArray.lookup(i);
-      const fileSpecRef = namesArray.get(i + 1);
-
-      if (!nameObj || !fileSpecRef) continue;
-
-      // Get the filename
-      let filename = '';
-      if (nameObj instanceof PDFHexString) {
-        filename = nameObj.decodeText();
-      } else if (nameObj instanceof PDFString) {
-        filename = nameObj.decodeText();
-      }
-
-      // Get the file specification dictionary
-      const fileSpec = pdfDoc.context.lookup(fileSpecRef) as PDFDict | undefined;
-      if (!fileSpec) continue;
-
-      // Get the embedded file stream
-      const efDict = fileSpec.lookup(PDFName.of('EF')) as PDFDict | undefined;
-      if (!efDict) continue;
-
-      const streamRef = efDict.get(PDFName.of('F')) || efDict.get(PDFName.of('UF'));
-      if (!streamRef) continue;
-
-      const stream = pdfDoc.context.lookup(streamRef) as PDFStream | undefined;
-      if (!stream) continue;
-
-      // Get the file data
-      const data = stream.getContents();
-
-      embeddedFiles.push({ name: filename, data });
     }
   } catch (error) {
     console.error('Error reading embedded files:', error);
@@ -181,20 +150,20 @@ async function getEmbeddedFiles(pdfDoc: PDFDocument): Promise<Array<{ name: stri
 }
 
 /**
- * Get page information from PDF document
+ * Get page information from PDF document using pdfjs
  */
-function getPageInfo(pdfDoc: PDFDocument): PdfhPage[] {
+async function getPageInfoWithPdfJs(pdfDoc: any): Promise<PdfhPage[]> {
   const pages: PdfhPage[] = [];
-  const pageCount = pdfDoc.getPageCount();
+  const numPages = pdfDoc.numPages;
 
-  for (let i = 0; i < pageCount; i++) {
-    const page = pdfDoc.getPage(i);
-    const { width, height } = page.getSize();
+  for (let i = 1; i <= numPages; i++) {
+    const page = await pdfDoc.getPage(i);
+    const viewport = page.getViewport({ scale: 1 });
 
     pages.push({
-      pageNumber: i + 1,
-      width,
-      height,
+      pageNumber: i,
+      width: viewport.width,
+      height: viewport.height,
     });
   }
 
@@ -212,8 +181,11 @@ export async function getPdfhMetadata(pdfBytes: Uint8Array): Promise<{
   title?: string;
 }> {
   try {
-    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-    const embeddedFiles = await getEmbeddedFiles(pdfDoc);
+    const pdfjs = await getPdfJs();
+    const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+    const pdfDoc = await loadingTask.promise;
+
+    const embeddedFiles = await getEmbeddedFilesWithPdfJs(pdfBytes);
     const pdfhFile = embeddedFiles.find(file => file.name === PDFH_EMBEDDED_FILENAME);
 
     if (!pdfhFile) {
@@ -222,13 +194,15 @@ export async function getPdfhMetadata(pdfBytes: Uint8Array): Promise<{
 
     const html = new TextDecoder().decode(pdfhFile.data);
     const metadata = extractPdfhMetadata(html);
+    const pdfMetadata = await pdfDoc.getMetadata();
+    const pdfInfo = pdfMetadata.info as Record<string, unknown> | undefined;
 
     return {
       isPdfh: true,
       version: metadata.version,
       conformanceLevel: metadata.conformanceLevel,
-      pageCount: pdfDoc.getPageCount(),
-      title: pdfDoc.getTitle() || undefined,
+      pageCount: pdfDoc.numPages,
+      title: (pdfInfo?.Title as string) || undefined,
     };
   } catch {
     return { isPdfh: false };
