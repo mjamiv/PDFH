@@ -129,10 +129,15 @@ async function getEmbeddedFilesWithPdfJs(pdfBytes: Uint8Array): Promise<Array<{ 
     // Get the document's attachment list
     const attachments = await pdfDoc.getAttachments();
 
+    console.log('Attachments from pdfjs:', attachments);
+    console.log('Attachment keys:', attachments ? Object.keys(attachments) : 'null');
+
     if (attachments) {
       for (const [filename, attachment] of Object.entries(attachments)) {
+        console.log(`Processing attachment: ${filename}`, attachment);
         if (attachment && typeof attachment === 'object' && 'content' in attachment) {
           const content = (attachment as any).content;
+          console.log(`Content type: ${content?.constructor?.name}, is Uint8Array: ${content instanceof Uint8Array}`);
           if (content instanceof Uint8Array) {
             embeddedFiles.push({
               name: filename,
@@ -142,6 +147,8 @@ async function getEmbeddedFilesWithPdfJs(pdfBytes: Uint8Array): Promise<Array<{ 
         }
       }
     }
+
+    console.log('Embedded files found:', embeddedFiles.map(f => f.name));
   } catch (error) {
     console.error('Error reading embedded files:', error);
   }
