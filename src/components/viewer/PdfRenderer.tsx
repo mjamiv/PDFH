@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '../common/Button';
 
 // Dynamically import pdfjs-dist to prevent build issues
-let pdfjsLib: typeof import('pdfjs-dist') | null = null;
+let pdfjsLib: any = null;
 
 const initPdfJs = async () => {
   if (!pdfjsLib) {

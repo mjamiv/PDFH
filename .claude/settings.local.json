@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git clone:*)",
+      "Bash(git init:*)",
+      "Bash(git remote add:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "WebFetch(domain:mjamiv.github.io)",
+      "Bash(npm install)",
+      "Bash(npm run build:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx vite build:*)",
+      "Bash(npx tsc)",
+      "Bash(echo:*)",
+      "Bash(npm --version:*)",
+      "Bash(npm install:*)",
+      "Bash(node --version:*)",
+      "Bash(node -e:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd PDFH web application for creating and viewing PDFH files\n\nImplements a React + TypeScript + Vite web application that allows users to:\n- Create PDFH files by writing HTML and generating PDFs with embedded HTML content\n- View PDFH files with side-by-side PDF rendering and HTML extraction\n- Support for PDFH-1a and PDFH-1b conformance levels\n\nFeatures:\n- Monaco editor for HTML editing with syntax highlighting\n- Live PDF preview\n- Drag and drop file upload\n- PDF rendering with pdfjs-dist\n- PDFH detection and HTML extraction\n- Dark/light mode toggle\n- GitHub Actions workflow for automatic deployment to GitHub Pages\n\nTech stack: React 18, TypeScript, Vite, Tailwind CSS, pdf-lib, pdfjs-dist\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(gh pr create --title \"Add PDFH web application\" --body \"$\\(cat <<''EOF''\n## Summary\n- Implements a complete React + TypeScript + Vite web application for creating and viewing PDFH files\n- Adds PDFH core library for embedding HTML within PDFs and extracting it back\n- Includes GitHub Actions workflow for automatic deployment to GitHub Pages\n\n## Features\n- **Creator Mode**: Monaco HTML editor with live preview, PDFH-1a/1b conformance options, generate & download\n- **Viewer Mode**: Drag & drop file upload, PDF rendering, PDFH detection, side-by-side HTML extraction\n- **Core Library**: Creates PDFs with embedded HTML \\(pdf-lib\\), extracts HTML from PDFH files\n- **UI/UX**: Dark/light mode toggle, responsive design, Tailwind CSS styling\n\n## Tech Stack\n- React 18, TypeScript, Vite\n- pdf-lib \\(PDF creation/modification\\)\n- pdfjs-dist \\(PDF rendering\\)\n- Monaco Editor \\(HTML editing\\)\n- Tailwind CSS \\(styling\\)\n\n## Test plan\n- [ ] Run `npm install` and `npm run dev` to verify local development works\n- [ ] Create a PDFH file using the Creator tab and download it\n- [ ] Upload the generated PDFH file in the Viewer tab and verify HTML extraction\n- [ ] Upload a regular PDF and verify \"No PDFH Content\" message appears\n- [ ] Test dark/light mode toggle\n- [ ] Merge and verify GitHub Pages deployment at https://mjamiv.github.io/PDFH/\n\n🤖 Generated with [Claude Code]\\(https://claude.ai/code\\)\nEOF\n\\)\")",
+      "Bash(where gh:*)",
+      "Bash(git pull:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git restore:*)",
+      "Bash(git commit:*)",
+      "Bash(claude mcp:*)",
+      "Bash(gh run list:*)"
+    ]
+  }
+}

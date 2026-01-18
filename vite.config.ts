@@ -7,8 +7,5 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist'
-  },
-  optimizeDeps: {
-    include: ['pdfjs-dist']
   }
 })

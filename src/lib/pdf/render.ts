@@ -4,7 +4,7 @@
  */
 
 // Dynamically import pdfjs-dist to prevent build issues
-let pdfjsLib: typeof import('pdfjs-dist') | null = null;
+let pdfjsLib: any = null;
 
 const getPdfJs = async () => {
   if (!pdfjsLib) {

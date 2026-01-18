@@ -14,7 +14,7 @@ import {
 import { extractPdfhMetadata, extractBodyContent } from './schema';
 
 // Dynamically import pdfjs-dist
-let pdfjsLib: typeof import('pdfjs-dist') | null = null;
+let pdfjsLib: any = null;
 
 const getPdfJs = async () => {
   if (!pdfjsLib) {
