@@ -29,7 +29,7 @@ export function CreatorPage() {
     });
 
     if (result) {
-      downloadPdfh(`${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdfh`);
+      downloadPdfh(`${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdfh`, result);
     }
   }, [html, title, conformanceLevel, includeCoordinateMapping, generatePdfh, downloadPdfh]);
 

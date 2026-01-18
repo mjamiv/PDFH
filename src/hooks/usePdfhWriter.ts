@@ -17,7 +17,7 @@ interface UsePdfhWriterState {
 interface UsePdfhWriterReturn extends UsePdfhWriterState {
   generatePdfh: (options: PdfhWriterOptions) => Promise<Uint8Array | null>;
   validateContent: (html: string) => PdfhValidationResult;
-  downloadPdfh: (filename?: string) => void;
+  downloadPdfh: (filename?: string, bytes?: Uint8Array) => void;
   reset: () => void;
 }
 
@@ -75,13 +75,14 @@ export function usePdfhWriter(): UsePdfhWriterReturn {
     }
   }, []);
 
-  const downloadPdfh = useCallback((filename: string = 'document.pdfh') => {
-    if (!state.pdfBytes) {
+  const downloadPdfh = useCallback((filename: string = 'document.pdfh', bytes?: Uint8Array) => {
+    const dataToDownload = bytes || state.pdfBytes;
+    if (!dataToDownload) {
       console.error('No PDFH data to download');
       return;
     }
 
-    const blob = new Blob([new Uint8Array(state.pdfBytes)], { type: 'application/pdf' });
+    const blob = new Blob([new Uint8Array(dataToDownload)], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
