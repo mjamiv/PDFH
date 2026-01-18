@@ -3,10 +3,16 @@
  * Helper functions for rendering PDFs using pdfjs-dist
  */
 
-import * as pdfjsLib from 'pdfjs-dist';
+// Dynamically import pdfjs-dist to prevent build issues
+let pdfjsLib: typeof import('pdfjs-dist') | null = null;
 
-// Set up the worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+const getPdfJs = async () => {
+  if (!pdfjsLib) {
+    pdfjsLib = await import('pdfjs-dist');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
+  }
+  return pdfjsLib;
+};
 
 export interface RenderOptions {
   scale?: number;
@@ -22,8 +28,9 @@ export interface PageInfo {
 /**
  * Load a PDF document from bytes
  */
-export async function loadPdfDocument(pdfBytes: Uint8Array): Promise<pdfjsLib.PDFDocumentProxy> {
-  const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+export async function loadPdfDocument(pdfBytes: Uint8Array): Promise<any> {
+  const pdfjs = await getPdfJs();
+  const loadingTask = pdfjs.getDocument({ data: pdfBytes });
   return await loadingTask.promise;
 }
 
@@ -31,7 +38,7 @@ export async function loadPdfDocument(pdfBytes: Uint8Array): Promise<pdfjsLib.PD
  * Render a PDF page to a canvas
  */
 export async function renderPageToCanvas(
-  pdfDoc: pdfjsLib.PDFDocumentProxy,
+  pdfDoc: any,
   pageNumber: number,
   canvas: HTMLCanvasElement,
   scale: number = 1.5
@@ -59,7 +66,7 @@ export async function renderPageToCanvas(
  * Render a PDF page and return as data URL
  */
 export async function renderPageToDataUrl(
-  pdfDoc: pdfjsLib.PDFDocumentProxy,
+  pdfDoc: any,
   pageNumber: number,
   scale: number = 1.5
 ): Promise<string> {
@@ -86,7 +93,7 @@ export async function renderPageToDataUrl(
 /**
  * Get information about all pages in a PDF
  */
-export async function getPagesInfo(pdfDoc: pdfjsLib.PDFDocumentProxy): Promise<PageInfo[]> {
+export async function getPagesInfo(pdfDoc: any): Promise<PageInfo[]> {
   const pages: PageInfo[] = [];
 
   for (let i = 1; i <= pdfDoc.numPages; i++) {
@@ -107,21 +114,21 @@ export async function getPagesInfo(pdfDoc: pdfjsLib.PDFDocumentProxy): Promise<P
  * Extract text content from a PDF page
  */
 export async function extractPageText(
-  pdfDoc: pdfjsLib.PDFDocumentProxy,
+  pdfDoc: any,
   pageNumber: number
 ): Promise<string> {
   const page = await pdfDoc.getPage(pageNumber);
   const textContent = await page.getTextContent();
 
   return textContent.items
-    .map(item => ('str' in item ? item.str : ''))
+    .map((item: any) => ('str' in item ? item.str : ''))
     .join(' ');
 }
 
 /**
  * Extract text from all pages of a PDF
  */
-export async function extractAllText(pdfDoc: pdfjsLib.PDFDocumentProxy): Promise<string> {
+export async function extractAllText(pdfDoc: any): Promise<string> {
   const texts: string[] = [];
 
   for (let i = 1; i <= pdfDoc.numPages; i++) {

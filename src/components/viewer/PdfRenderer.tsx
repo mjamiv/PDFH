@@ -4,11 +4,18 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
 import { Button } from '../common/Button';
 
-// Set up the worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Dynamically import pdfjs-dist to prevent build issues
+let pdfjsLib: typeof import('pdfjs-dist') | null = null;
+
+const initPdfJs = async () => {
+  if (!pdfjsLib) {
+    pdfjsLib = await import('pdfjs-dist');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
+  }
+  return pdfjsLib;
+};
 
 interface PdfRendererProps {
   pdfBytes: Uint8Array | null;
@@ -17,7 +24,7 @@ interface PdfRendererProps {
 
 export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [scale, setScale] = useState(1.2);
@@ -38,7 +45,8 @@ export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
       setError(null);
 
       try {
-        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+        const pdfjs = await initPdfJs();
+        const loadingTask = pdfjs.getDocument({ data: pdfBytes });
         const pdf = await loadingTask.promise;
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
