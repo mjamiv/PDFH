@@ -46,7 +46,9 @@ export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
 
       try {
         const pdfjs = await initPdfJs();
-        const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+        // Copy bytes to avoid "ArrayBuffer is detached" error
+        const bytesCopy = new Uint8Array(pdfBytes);
+        const loadingTask = pdfjs.getDocument({ data: bytesCopy });
         const pdf = await loadingTask.promise;
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);

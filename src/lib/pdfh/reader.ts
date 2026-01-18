@@ -42,7 +42,9 @@ export async function isPdfhFile(pdfBytes: Uint8Array): Promise<boolean> {
 export async function extractPdfh(pdfBytes: Uint8Array): Promise<PdfhReaderResult> {
   try {
     const pdfjs = await getPdfJs();
-    const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+    // Copy bytes to avoid "ArrayBuffer is detached" error
+    const bytesCopy = new Uint8Array(pdfBytes);
+    const loadingTask = pdfjs.getDocument({ data: bytesCopy });
     const pdfDoc = await loadingTask.promise;
 
     // Get embedded files using pdfjs (handles decompression)
@@ -123,21 +125,19 @@ async function getEmbeddedFilesWithPdfJs(pdfBytes: Uint8Array): Promise<Array<{ 
 
   try {
     const pdfjs = await getPdfJs();
-    const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+    // Copy the bytes to avoid "ArrayBuffer is detached" error when the same bytes
+    // are used by multiple pdfjs instances (e.g., reader and renderer)
+    const bytesCopy = new Uint8Array(pdfBytes);
+    const loadingTask = pdfjs.getDocument({ data: bytesCopy });
     const pdfDoc = await loadingTask.promise;
 
     // Get the document's attachment list
     const attachments = await pdfDoc.getAttachments();
 
-    console.log('Attachments from pdfjs:', attachments);
-    console.log('Attachment keys:', attachments ? Object.keys(attachments) : 'null');
-
     if (attachments) {
       for (const [filename, attachment] of Object.entries(attachments)) {
-        console.log(`Processing attachment: ${filename}`, attachment);
         if (attachment && typeof attachment === 'object' && 'content' in attachment) {
           const content = (attachment as any).content;
-          console.log(`Content type: ${content?.constructor?.name}, is Uint8Array: ${content instanceof Uint8Array}`);
           if (content instanceof Uint8Array) {
             embeddedFiles.push({
               name: filename,
@@ -147,8 +147,6 @@ async function getEmbeddedFilesWithPdfJs(pdfBytes: Uint8Array): Promise<Array<{ 
         }
       }
     }
-
-    console.log('Embedded files found:', embeddedFiles.map(f => f.name));
   } catch (error) {
     console.error('Error reading embedded files:', error);
   }
@@ -189,7 +187,9 @@ export async function getPdfhMetadata(pdfBytes: Uint8Array): Promise<{
 }> {
   try {
     const pdfjs = await getPdfJs();
-    const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+    // Copy bytes to avoid "ArrayBuffer is detached" error
+    const bytesCopy = new Uint8Array(pdfBytes);
+    const loadingTask = pdfjs.getDocument({ data: bytesCopy });
     const pdfDoc = await loadingTask.promise;
 
     const embeddedFiles = await getEmbeddedFilesWithPdfJs(pdfBytes);
