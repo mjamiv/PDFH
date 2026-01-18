@@ -5,3 +5,6 @@
 export { usePdfhWriter } from './usePdfhWriter';
 export { usePdfhReader } from './usePdfhReader';
 export { useFileHandler, formatFileSize } from './useFileHandler';
+export { useLocalStorage } from './useLocalStorage';
+export { useToast } from './useToast';
+export type { Toast, ToastType, ToastOptions } from './useToast';

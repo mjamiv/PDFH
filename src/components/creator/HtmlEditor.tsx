@@ -5,6 +5,7 @@
 
 import { useRef, useCallback } from 'react';
 import Editor, { OnMount, OnChange } from '@monaco-editor/react';
+import { useTheme } from '../../context/ThemeContext';
 
 interface HtmlEditorProps {
   value: string;
@@ -52,6 +53,7 @@ export function HtmlEditor({
   readOnly = false,
   height = '400px',
 }: HtmlEditorProps) {
+  const { isDarkMode } = useTheme();
   const editorRef = useRef<any>(null);
 
   const handleEditorMount: OnMount = (editor) => {
@@ -97,9 +99,8 @@ export function HtmlEditor({
           automaticLayout: true,
           tabSize: 2,
           padding: { top: 16, bottom: 16 },
-          theme: 'vs-dark',
         }}
-        theme="vs-dark"
+        theme={isDarkMode ? 'vs-dark' : 'light'}
       />
     </div>
   );

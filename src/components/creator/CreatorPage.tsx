@@ -7,16 +7,20 @@ import { useState, useCallback } from 'react';
 import { Button } from '../common/Button';
 import { HtmlEditor, DEFAULT_HTML } from './HtmlEditor';
 import { PdfPreview } from './PdfPreview';
-import { ExportOptions } from './ExportOptions';
-import { usePdfhWriter } from '../../hooks';
+import { ExportOptions, PageSize, MarginSize } from './ExportOptions';
+import { usePdfhWriter, useLocalStorage } from '../../hooks';
+import { useToastContext } from '../common/ToastContainer';
 import { ConformanceLevel } from '../../types/pdfh';
 
 export function CreatorPage() {
   const [html, setHtml] = useState(DEFAULT_HTML);
   const [title, setTitle] = useState('My PDFH Document');
-  const [conformanceLevel, setConformanceLevel] = useState<ConformanceLevel>('PDFH-1b');
+  const [conformanceLevel, setConformanceLevel] = useLocalStorage<ConformanceLevel>('pdfh-conformance', 'PDFH-1b');
   const [includeCoordinateMapping, setIncludeCoordinateMapping] = useState(false);
-  const [showPreview, setShowPreview] = useState(true);
+  const [showPreview, setShowPreview] = useLocalStorage('pdfh-show-preview', true);
+  const [pageSize, setPageSize] = useLocalStorage<PageSize>('pdfh-page-size', 'letter');
+  const [marginSize, setMarginSize] = useLocalStorage<MarginSize>('pdfh-margin-size', 'normal');
+  const toast = useToastContext();
 
   const { isGenerating, error, validation, generatePdfh, downloadPdfh, reset } = usePdfhWriter();
 
@@ -30,8 +34,11 @@ export function CreatorPage() {
 
     if (result) {
       downloadPdfh(`${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdfh`, result);
+      toast.success('File downloaded successfully');
+    } else if (error) {
+      toast.error('Failed to generate PDFH file');
     }
-  }, [html, title, conformanceLevel, includeCoordinateMapping, generatePdfh, downloadPdfh]);
+  }, [html, title, conformanceLevel, includeCoordinateMapping, generatePdfh, downloadPdfh, toast, error]);
 
   const handleLoadSample = useCallback(() => {
     setHtml(DEFAULT_HTML);
@@ -70,7 +77,7 @@ export function CreatorPage() {
               </Button>
             </div>
           </div>
-          <HtmlEditor value={html} onChange={setHtml} height="500px" />
+          <HtmlEditor value={html} onChange={setHtml} height="min(500px, 50vh)" />
 
           {/* Validation Messages */}
           {validation && !validation.isValid && (
@@ -116,7 +123,7 @@ export function CreatorPage() {
           </div>
 
           {showPreview && (
-            <div className="h-[400px]">
+            <div className="min-h-[300px] h-[45vh]">
               <PdfPreview html={html} title={title} />
             </div>
           )}
@@ -128,6 +135,10 @@ export function CreatorPage() {
             onConformanceChange={setConformanceLevel}
             includeCoordinateMapping={includeCoordinateMapping}
             onCoordinateMappingChange={setIncludeCoordinateMapping}
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+            marginSize={marginSize}
+            onMarginSizeChange={setMarginSize}
           />
 
           {/* Generate Button */}

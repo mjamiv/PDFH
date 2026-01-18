@@ -133,7 +133,7 @@ export function ViewerPage() {
                   </div>
                 </div>
               </div>
-              <div className="h-[600px] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <div className="min-h-[400px] h-[60vh] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                 <PdfRenderer pdfBytes={pdfBytes} />
               </div>
             </div>

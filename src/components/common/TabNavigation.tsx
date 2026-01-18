@@ -32,7 +32,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
   ];
 
   return (
-    <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+    <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors duration-300">
       <div className="container mx-auto px-4">
         <div className="flex gap-1">
           {tabs.map((tab) => (
@@ -40,7 +40,8 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`
-                flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors relative
+                flex items-center gap-2 px-6 py-3 text-sm font-medium transition-all duration-200 relative
+                hover:bg-gray-50 dark:hover:bg-gray-700/50
                 ${
                   activeTab === tab.id
                     ? 'text-primary-600 dark:text-primary-400'
@@ -50,9 +51,11 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
             >
               {tab.icon}
               {tab.label}
-              {activeTab === tab.id && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:bg-primary-400" />
-              )}
+              <span
+                className={`absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:bg-primary-400 transition-all duration-300 ${
+                  activeTab === tab.id ? 'opacity-100 scale-x-100' : 'opacity-0 scale-x-0'
+                }`}
+              />
             </button>
           ))}
         </div>

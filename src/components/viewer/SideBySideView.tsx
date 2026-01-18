@@ -1,12 +1,14 @@
 /**
  * SideBySideView Component
- * Split view showing PDF and extracted HTML side by side
+ * Split view showing PDF and extracted HTML side by side with resizable panes
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PdfRenderer } from './PdfRenderer';
 import { HtmlExtractor } from './HtmlExtractor';
+import { ResizablePanes } from '../common/ResizablePanes';
 import { PdfhContent } from '../../types/pdfh';
+import { useLocalStorage } from '../../hooks';
 
 interface SideBySideViewProps {
   pdfBytes: Uint8Array | null;
@@ -16,7 +18,31 @@ interface SideBySideViewProps {
 type ViewLayout = 'split' | 'pdf-only' | 'html-only';
 
 export function SideBySideView({ pdfBytes, content }: SideBySideViewProps) {
-  const [layout, setLayout] = useState<ViewLayout>('split');
+  const [layout, setLayout] = useLocalStorage<ViewLayout>('pdfh-view-layout', 'split');
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
+
+  // Check for large screen on mount and resize
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  const renderPdfPane = () => (
+    <div className="h-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <PdfRenderer pdfBytes={pdfBytes} />
+    </div>
+  );
+
+  const renderHtmlPane = () => (
+    <div className="h-full">
+      <HtmlExtractor content={content} />
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -25,7 +51,7 @@ export function SideBySideView({ pdfBytes, content }: SideBySideViewProps) {
         <div className="flex gap-1 p-1 bg-gray-200 dark:bg-gray-700 rounded-lg">
           <button
             onClick={() => setLayout('split')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 flex items-center gap-2 ${
               layout === 'split'
                 ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -38,7 +64,7 @@ export function SideBySideView({ pdfBytes, content }: SideBySideViewProps) {
           </button>
           <button
             onClick={() => setLayout('pdf-only')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 flex items-center gap-2 ${
               layout === 'pdf-only'
                 ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -51,7 +77,7 @@ export function SideBySideView({ pdfBytes, content }: SideBySideViewProps) {
           </button>
           <button
             onClick={() => setLayout('html-only')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 flex items-center gap-2 ${
               layout === 'html-only'
                 ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -66,16 +92,30 @@ export function SideBySideView({ pdfBytes, content }: SideBySideViewProps) {
       </div>
 
       {/* Content area */}
-      <div className="flex-1 grid gap-4" style={{
-        gridTemplateColumns: layout === 'split' ? '1fr 1fr' : '1fr',
-      }}>
-        {(layout === 'split' || layout === 'pdf-only') && (
-          <div className="h-[600px] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <div className="flex-1 min-h-[400px] h-[60vh]">
+        {layout === 'split' && isLargeScreen ? (
+          <ResizablePanes
+            leftPane={renderPdfPane()}
+            rightPane={renderHtmlPane()}
+            storageKey="pdfh-split-width"
+            className="animate-scale-in"
+          />
+        ) : layout === 'split' ? (
+          /* Stacked view for smaller screens */
+          <div className="grid grid-cols-1 gap-4 h-full">
+            <div className="min-h-[300px] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden animate-scale-in">
+              <PdfRenderer pdfBytes={pdfBytes} />
+            </div>
+            <div className="min-h-[300px] animate-scale-in">
+              <HtmlExtractor content={content} />
+            </div>
+          </div>
+        ) : layout === 'pdf-only' ? (
+          <div className="h-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden animate-scale-in">
             <PdfRenderer pdfBytes={pdfBytes} />
           </div>
-        )}
-        {(layout === 'split' || layout === 'html-only') && (
-          <div className="h-[600px]">
+        ) : (
+          <div className="h-full animate-scale-in">
             <HtmlExtractor content={content} />
           </div>
         )}

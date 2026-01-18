@@ -1,10 +1,11 @@
 /**
  * PdfRenderer Component
- * Renders PDF pages using pdfjs-dist
+ * Renders PDF pages using pdfjs-dist with fullscreen mode and page jump
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '../common/Button';
+import { useLocalStorage } from '../../hooks';
 
 // Dynamically import pdfjs-dist to prevent build issues
 let pdfjsLib: any = null;
@@ -22,14 +23,20 @@ interface PdfRendererProps {
   className?: string;
 }
 
+type FitMode = 'custom' | 'fit-width' | 'fit-page';
+
 export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [scale, setScale] = useState(1.2);
+  const [scale, setScale] = useLocalStorage('pdfh-zoom-level', 1.2);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [pageInputValue, setPageInputValue] = useState('1');
+  const [fitMode, setFitMode] = useState<FitMode>('custom');
 
   // Load PDF document
   useEffect(() => {
@@ -91,22 +98,68 @@ export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
     renderPage();
   }, [pdfDoc, currentPage, scale]);
 
+  // Update page input when currentPage changes
+  useEffect(() => {
+    setPageInputValue(String(currentPage));
+  }, [currentPage]);
+
+  // Handle fullscreen change events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   const goToPage = useCallback((page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
     }
   }, [totalPages]);
 
+  const handlePageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPageInputValue(e.target.value);
+  };
+
+  const handlePageInputSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const page = parseInt(pageInputValue, 10);
+    if (!isNaN(page) && page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    } else {
+      setPageInputValue(String(currentPage));
+    }
+  };
+
   const zoomIn = useCallback(() => {
+    setFitMode('custom');
     setScale(prev => Math.min(prev + 0.2, 3));
-  }, []);
+  }, [setScale]);
 
   const zoomOut = useCallback(() => {
+    setFitMode('custom');
     setScale(prev => Math.max(prev - 0.2, 0.5));
-  }, []);
+  }, [setScale]);
 
   const resetZoom = useCallback(() => {
+    setFitMode('custom');
     setScale(1.2);
+  }, [setScale]);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (!containerRef.current) return;
+
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error('Fullscreen error:', err);
+    }
   }, []);
 
   if (!pdfBytes) {
@@ -140,9 +193,12 @@ export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
   }
 
   return (
-    <div className={`flex flex-col h-full ${className}`}>
+    <div
+      ref={containerRef}
+      className={`flex flex-col h-full ${isFullscreen ? 'bg-gray-900' : ''} ${className}`}
+    >
       {/* Toolbar */}
-      <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2">
+      <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex-shrink-0">
         {/* Page navigation */}
         <div className="flex items-center gap-2">
           <Button
@@ -155,9 +211,18 @@ export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </Button>
-          <span className="text-sm text-gray-600 dark:text-gray-300">
-            Page {currentPage} of {totalPages}
-          </span>
+          <form onSubmit={handlePageInputSubmit} className="flex items-center gap-1">
+            <input
+              type="text"
+              value={pageInputValue}
+              onChange={handlePageInputChange}
+              className="w-12 px-2 py-1 text-xs text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+              aria-label="Page number"
+            />
+            <span className="text-sm text-gray-600 dark:text-gray-300">
+              of {totalPages}
+            </span>
+          </form>
           <Button
             variant="ghost"
             size="sm"
@@ -170,7 +235,7 @@ export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
           </Button>
         </div>
 
-        {/* Zoom controls */}
+        {/* Zoom and view controls */}
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={zoomOut}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -188,15 +253,32 @@ export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
           <Button variant="ghost" size="sm" onClick={resetZoom}>
             Reset
           </Button>
+          <div className="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {isFullscreen ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            )}
+          </Button>
         </div>
       </div>
 
       {/* Canvas container */}
-      <div className="flex-1 overflow-auto bg-gray-200 dark:bg-gray-900 p-4">
+      <div className={`flex-1 overflow-auto bg-gray-200 dark:bg-gray-900 p-4 ${isFullscreen ? 'flex items-center justify-center' : ''}`}>
         <div className="flex justify-center">
           <canvas
             ref={canvasRef}
-            className="shadow-lg bg-white"
+            className="shadow-lg bg-white transition-transform duration-200"
           />
         </div>
       </div>
