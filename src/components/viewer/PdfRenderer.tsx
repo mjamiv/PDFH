@@ -23,8 +23,6 @@ interface PdfRendererProps {
   className?: string;
 }
 
-type FitMode = 'custom' | 'fit-width' | 'fit-page';
-
 export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -36,7 +34,6 @@ export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [pageInputValue, setPageInputValue] = useState('1');
-  const [fitMode, setFitMode] = useState<FitMode>('custom');
 
   // Load PDF document
   useEffect(() => {
@@ -134,17 +131,14 @@ export function PdfRenderer({ pdfBytes, className = '' }: PdfRendererProps) {
   };
 
   const zoomIn = useCallback(() => {
-    setFitMode('custom');
     setScale(prev => Math.min(prev + 0.2, 3));
   }, [setScale]);
 
   const zoomOut = useCallback(() => {
-    setFitMode('custom');
     setScale(prev => Math.max(prev - 0.2, 0.5));
   }, [setScale]);
 
   const resetZoom = useCallback(() => {
-    setFitMode('custom');
     setScale(1.2);
   }, [setScale]);
 

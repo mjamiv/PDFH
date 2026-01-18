@@ -5,7 +5,7 @@
 
 import { createContext, useContext, ReactNode } from 'react';
 import { Toast } from './Toast';
-import { useToast, Toast as ToastType, ToastOptions } from '../../hooks/useToast';
+import { useToast, ToastOptions } from '../../hooks/useToast';
 
 interface ToastContextType {
   success: (message: string, duration?: number) => string;
