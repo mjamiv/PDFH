@@ -29,9 +29,11 @@ export function RichHtmlEditor({
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [showHelper, setShowHelper] = useState(false);
   const [rawText, setRawText] = useState('');
+  const [isVisualFocused, setIsVisualFocused] = useState(false);
 
   const editorStyle = useMemo(() => ({ height }), [height]);
   const isVisualEnabled = !readOnly && viewMode !== 'source';
+  const isToolbarEnabled = isVisualEnabled && isVisualFocused;
 
   useEffect(() => {
     const node = editorRef.current;
@@ -67,10 +69,21 @@ export function RichHtmlEditor({
     }
   }, []);
 
+  useEffect(() => {
+    if (!isVisualEnabled || !isVisualFocused) return;
+
+    const handleSelectionChange = () => {
+      updateSelection();
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [isVisualEnabled, isVisualFocused, updateSelection]);
+
   const handleToolbarMouseDown = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
-    if (!isVisualEnabled) return;
+    if (!isToolbarEnabled) return;
     event.preventDefault();
-  }, [isVisualEnabled]);
+  }, [isToolbarEnabled]);
 
   const handleCreateLink = useCallback(() => {
     if (readOnly) return;
@@ -127,95 +140,95 @@ export function RichHtmlEditor({
       {!readOnly && (
         <div className="border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex flex-wrap items-center gap-2 bg-white dark:bg-gray-800">
           <button
-            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isVisualEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isToolbarEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => applyCommand('bold')}
             onMouseDown={handleToolbarMouseDown}
             type="button"
-            disabled={!isVisualEnabled}
+            disabled={!isToolbarEnabled}
           >
             Bold
           </button>
           <button
-            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isVisualEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isToolbarEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => applyCommand('italic')}
             onMouseDown={handleToolbarMouseDown}
             type="button"
-            disabled={!isVisualEnabled}
+            disabled={!isToolbarEnabled}
           >
             Italic
           </button>
           <button
-            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isVisualEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isToolbarEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => applyCommand('underline')}
             onMouseDown={handleToolbarMouseDown}
             type="button"
-            disabled={!isVisualEnabled}
+            disabled={!isToolbarEnabled}
           >
             Underline
           </button>
           <div className="w-px h-4 bg-gray-200 dark:bg-gray-600" />
           <button
-            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isVisualEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={() => applyCommand('formatBlock', 'H1')}
+            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isToolbarEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => applyCommand('formatBlock', '<h1>')}
             onMouseDown={handleToolbarMouseDown}
             type="button"
-            disabled={!isVisualEnabled}
+            disabled={!isToolbarEnabled}
           >
             H1
           </button>
           <button
-            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isVisualEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={() => applyCommand('formatBlock', 'H2')}
+            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isToolbarEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => applyCommand('formatBlock', '<h2>')}
             onMouseDown={handleToolbarMouseDown}
             type="button"
-            disabled={!isVisualEnabled}
+            disabled={!isToolbarEnabled}
           >
             H2
           </button>
           <button
-            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isVisualEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-            onClick={() => applyCommand('formatBlock', 'P')}
+            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isToolbarEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => applyCommand('formatBlock', '<p>')}
             onMouseDown={handleToolbarMouseDown}
             type="button"
-            disabled={!isVisualEnabled}
+            disabled={!isToolbarEnabled}
           >
             P
           </button>
           <div className="w-px h-4 bg-gray-200 dark:bg-gray-600" />
           <button
-            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isVisualEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isToolbarEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => applyCommand('insertUnorderedList')}
             onMouseDown={handleToolbarMouseDown}
             type="button"
-            disabled={!isVisualEnabled}
+            disabled={!isToolbarEnabled}
           >
             Bullet List
           </button>
           <button
-            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isVisualEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isToolbarEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => applyCommand('insertOrderedList')}
             onMouseDown={handleToolbarMouseDown}
             type="button"
-            disabled={!isVisualEnabled}
+            disabled={!isToolbarEnabled}
           >
             Numbered List
           </button>
           <div className="w-px h-4 bg-gray-200 dark:bg-gray-600" />
           <button
-            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isVisualEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isToolbarEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={handleCreateLink}
             onMouseDown={handleToolbarMouseDown}
             type="button"
-            disabled={!isVisualEnabled}
+            disabled={!isToolbarEnabled}
           >
             Link
           </button>
           <button
-            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isVisualEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 ${!isToolbarEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => applyCommand('removeFormat')}
             onMouseDown={handleToolbarMouseDown}
             type="button"
-            disabled={!isVisualEnabled}
+            disabled={!isToolbarEnabled}
           >
             Clear
           </button>
@@ -258,13 +271,20 @@ export function RichHtmlEditor({
           <div className="border-r border-gray-200 dark:border-gray-700" style={editorStyle}>
             <div
               ref={editorRef}
-              className="h-full p-4 overflow-auto outline-none"
+              className="relative h-full p-4 overflow-auto outline-none"
               contentEditable={!readOnly}
               suppressContentEditableWarning
               onInput={handleInput}
               onKeyUp={updateSelection}
               onMouseUp={updateSelection}
+              onFocus={() => setIsVisualFocused(true)}
+              onBlur={() => setIsVisualFocused(false)}
             />
+            {!value && (
+              <div className="pointer-events-none absolute top-4 left-4 text-sm text-gray-400 dark:text-gray-500">
+                Start typing here...
+              </div>
+            )}
           </div>
         )}
         {(viewMode === 'source' || viewMode === 'split') && (
