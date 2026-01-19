@@ -16,64 +16,11 @@ interface HtmlExtractorProps {
 
 type ViewMode = 'formatted' | 'source';
 
-// Simple HTML syntax highlighter
-function highlightHtml(html: string): string {
-  // Escape HTML entities first
-  let result = html
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  // Highlight tags
-  result = result.replace(
-    /(&lt;\/?)([\w-]+)/g,
-    '<span class="text-pink-600 dark:text-pink-400">$1</span><span class="text-blue-600 dark:text-blue-400">$2</span>'
-  );
-
-  // Highlight closing bracket
-  result = result.replace(
-    /(\/?&gt;)/g,
-    '<span class="text-pink-600 dark:text-pink-400">$1</span>'
-  );
-
-  // Highlight attributes
-  result = result.replace(
-    /\s([\w-]+)=/g,
-    ' <span class="text-yellow-600 dark:text-yellow-400">$1</span>='
-  );
-
-  // Highlight strings (attribute values)
-  result = result.replace(
-    /=(".*?"|'.*?')/g,
-    '=<span class="text-green-600 dark:text-green-400">$1</span>'
-  );
-
-  // Highlight comments
-  result = result.replace(
-    /(&lt;!--.*?--&gt;)/gs,
-    '<span class="text-gray-500 dark:text-gray-500 italic">$1</span>'
-  );
-
-  // Highlight DOCTYPE
-  result = result.replace(
-    /(&lt;!DOCTYPE[^&]*&gt;)/gi,
-    '<span class="text-purple-600 dark:text-purple-400">$1</span>'
-  );
-
-  return result;
-}
-
 export function HtmlExtractor({ content, className = '' }: HtmlExtractorProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('formatted');
   const [copySuccess, setCopySuccess] = useState(false);
   const [showLineNumbers, setShowLineNumbers] = useState(true);
   const toast = useToastContext();
-
-  // Memoize highlighted HTML for performance
-  const highlightedHtml = useMemo(() => {
-    if (!content) return '';
-    return highlightHtml(content.html);
-  }, [content]);
 
   // Split into lines for line numbers
   const lines = useMemo(() => {
@@ -246,10 +193,9 @@ export function HtmlExtractor({ content, className = '' }: HtmlExtractorProps) {
                 ))}
               </div>
             )}
-            <pre
-              className="flex-1 p-4 overflow-x-auto leading-5"
-              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-            />
+            <pre className="flex-1 p-4 overflow-x-auto leading-5">
+              {content.html}
+            </pre>
           </div>
         )}
       </div>
