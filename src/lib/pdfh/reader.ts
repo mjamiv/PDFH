@@ -84,7 +84,9 @@ export async function extractPdfh(
     const pdfInfo = metadata.info as Record<string, unknown> | undefined;
     const infoVersion = typeof pdfInfo?.PDFHVersion === 'string' ? pdfInfo.PDFHVersion : undefined;
     const infoConformance = typeof pdfInfo?.PDFHConformance === 'string' ? pdfInfo.PDFHConformance : undefined;
-    const fallbackConformance = isValidConformanceLevel(infoConformance || '') ? infoConformance : 'PDFH-1b';
+    const fallbackConformance: ConformanceLevel = isValidConformanceLevel(infoConformance || '')
+      ? infoConformance
+      : 'PDFH-1b';
     const content: PdfhContent = {
       html,
       version: htmlMetadata.version || infoVersion || PDFH_VERSION,
@@ -219,7 +221,9 @@ export async function getPdfhMetadata(pdfBytes: Uint8Array): Promise<{
     const pdfInfo = pdfMetadata.info as Record<string, unknown> | undefined;
     const infoVersion = typeof pdfInfo?.PDFHVersion === 'string' ? pdfInfo.PDFHVersion : undefined;
     const infoConformance = typeof pdfInfo?.PDFHConformance === 'string' ? pdfInfo.PDFHConformance : undefined;
-    const fallbackConformance = isValidConformanceLevel(infoConformance || '') ? infoConformance : undefined;
+    const fallbackConformance: ConformanceLevel | undefined = isValidConformanceLevel(infoConformance || '')
+      ? infoConformance
+      : undefined;
 
     return {
       isPdfh: true,

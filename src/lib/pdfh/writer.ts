@@ -22,7 +22,6 @@ export async function createPdfh(options: PdfhWriterOptions): Promise<Uint8Array
     title = 'PDFH Document',
     author,
     conformanceLevel,
-    includeCoordinateMapping = false,
     pageSize = PAGE_SIZES.LETTER,
     margins = DEFAULT_MARGINS,
   } = options;
