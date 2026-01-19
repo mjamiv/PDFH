@@ -18,6 +18,12 @@ interface ReaderOptions {
   disableWorker?: boolean;
 }
 
+export interface EmbeddedFile {
+  name: string;
+  data: Uint8Array;
+  contentType?: string;
+}
+
 const parseConformance = (value: unknown): ConformanceLevel | undefined => {
   if (typeof value !== 'string') {
     return undefined;
@@ -71,7 +77,9 @@ export async function extractPdfh(
     if (!pdfhFile) {
       return {
         isPdfh: false,
-        error: 'No PDFH content found in PDF',
+        error: embeddedFiles.length > 0
+          ? 'Embedded files found but PDFH content is missing'
+          : 'No PDFH content found in PDF',
       };
     }
 
@@ -138,11 +146,18 @@ export async function extractBodyHtml(pdfBytes: Uint8Array): Promise<string | nu
  * Get list of embedded files from a PDF using pdfjs-dist
  * This properly handles decompression of embedded file streams
  */
+export async function listEmbeddedFiles(
+  pdfBytes: Uint8Array,
+  options: ReaderOptions = {}
+): Promise<EmbeddedFile[]> {
+  return await getEmbeddedFilesWithPdfJs(pdfBytes, options);
+}
+
 async function getEmbeddedFilesWithPdfJs(
   pdfBytes: Uint8Array,
   options: ReaderOptions
-): Promise<Array<{ name: string; data: Uint8Array }>> {
-  const embeddedFiles: Array<{ name: string; data: Uint8Array }> = [];
+): Promise<EmbeddedFile[]> {
+  const embeddedFiles: EmbeddedFile[] = [];
 
   try {
     const pdfjs = await getPdfJs();
@@ -159,10 +174,12 @@ async function getEmbeddedFilesWithPdfJs(
       for (const [filename, attachment] of Object.entries(attachments)) {
         if (attachment && typeof attachment === 'object' && 'content' in attachment) {
           const content = (attachment as any).content;
+          const contentType = (attachment as any).contentType;
           if (content instanceof Uint8Array) {
             embeddedFiles.push({
               name: filename,
               data: content,
+              contentType: typeof contentType === 'string' ? contentType : undefined,
             });
           }
         }

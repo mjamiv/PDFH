@@ -24,6 +24,7 @@ export async function createPdfh(options: PdfhWriterOptions): Promise<Uint8Array
     conformanceLevel,
     pageSize = PAGE_SIZES.LETTER,
     margins = DEFAULT_MARGINS,
+    metadataDate,
   } = options;
 
   // Validate HTML
@@ -42,8 +43,9 @@ export async function createPdfh(options: PdfhWriterOptions): Promise<Uint8Array
   pdfDoc.setSubject('PDFH Document');
   pdfDoc.setCreator('PDFH Web App');
   pdfDoc.setProducer(`PDFH Writer v${PDFH_VERSION}`);
-  pdfDoc.setCreationDate(new Date());
-  pdfDoc.setModificationDate(new Date());
+  const effectiveMetadataDate = metadataDate || new Date();
+  pdfDoc.setCreationDate(effectiveMetadataDate);
+  pdfDoc.setModificationDate(effectiveMetadataDate);
   if (author) {
     pdfDoc.setAuthor(author);
   }
@@ -114,7 +116,7 @@ export async function createPdfh(options: PdfhWriterOptions): Promise<Uint8Array
   });
 
   // Embed the HTML content as an attachment
-  await embedHtmlContent(pdfDoc, html);
+  await embedHtmlContent(pdfDoc, html, effectiveMetadataDate);
 
   // Save and return the PDF bytes
   return await pdfDoc.save();
@@ -123,15 +125,19 @@ export async function createPdfh(options: PdfhWriterOptions): Promise<Uint8Array
 /**
  * Embed HTML content in PDF as an embedded file
  */
-async function embedHtmlContent(pdfDoc: PDFDocument, html: string): Promise<void> {
+async function embedHtmlContent(
+  pdfDoc: PDFDocument,
+  html: string,
+  metadataDate: Date
+): Promise<void> {
   const htmlBytes = new TextEncoder().encode(html);
 
   // Use pdf-lib's built-in attachment method
   await pdfDoc.attach(htmlBytes, PDFH_EMBEDDED_FILENAME, {
     mimeType: 'text/html',
     description: 'PDFH embedded HTML content',
-    creationDate: new Date(),
-    modificationDate: new Date(),
+    creationDate: metadataDate,
+    modificationDate: metadataDate,
     afRelationship: AFRelationship.Source,
   });
 }

@@ -3,6 +3,6 @@
  */
 
 export { createPdfh, validateHtml } from './writer';
-export { extractPdfh, extractHtml, extractBodyHtml, isPdfhFile, getPdfhMetadata } from './reader';
+export { extractPdfh, extractHtml, extractBodyHtml, isPdfhFile, getPdfhMetadata, listEmbeddedFiles } from './reader';
 export { wrapHtmlWithPdfhSchema, extractPdfhMetadata, extractBodyContent, isPdfhHtml } from './schema';
 export { validatePdfhHtml, isValidConformanceLevel, getValidationSummary } from './validator';

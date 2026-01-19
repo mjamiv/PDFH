@@ -33,6 +33,7 @@ Goal: preserve the original HTML bytes exactly across the round-trip. The HTML e
 ## Validation Behavior
 - Validation may warn on risky content but must not modify the HTML payload.
 - Validation errors should not reformat or auto-correct input.
+- Large HTML payloads should emit warnings but remain unchanged.
 
 ## Tests (Planned)
 - Round-trip tests with fixture HTML files covering the edge cases.

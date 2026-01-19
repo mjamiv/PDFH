@@ -52,6 +52,7 @@ export interface PdfhWriterOptions {
   includeCoordinateMapping?: boolean;
   pageSize?: PageSize;
   margins?: PageMargins;
+  metadataDate?: Date;
 }
 
 export interface PageSize {

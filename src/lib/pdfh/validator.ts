@@ -6,6 +6,8 @@
 import { PdfhValidationResult, PdfhValidationError, PdfhValidationWarning, ConformanceLevel, PDFH_NAMESPACE } from '../../types/pdfh';
 import { extractPdfhMetadata, isPdfhHtml } from './schema';
 
+const LARGE_HTML_WARNING_CHARS = 1_000_000;
+
 /**
  * Validate HTML content for PDFH compliance
  */
@@ -69,6 +71,13 @@ export function validateHtml(html: string): PdfhValidationResult {
     warnings.push({
       code: 'EXTERNAL_RESOURCES',
       message: 'HTML references external resources which may not be embedded',
+    });
+  }
+
+  if (html.length > LARGE_HTML_WARNING_CHARS) {
+    warnings.push({
+      code: 'LARGE_HTML',
+      message: `HTML content is large (${html.length} chars). Consider reducing size for better performance.`,
     });
   }
 
