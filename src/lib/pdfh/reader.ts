@@ -18,6 +18,13 @@ interface ReaderOptions {
   disableWorker?: boolean;
 }
 
+const parseConformance = (value: unknown): ConformanceLevel | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  return isValidConformanceLevel(value) ? value : undefined;
+};
+
 // Dynamically import pdfjs-dist
 let pdfjsLib: any = null;
 
@@ -83,10 +90,8 @@ export async function extractPdfh(
     // Build content object
     const pdfInfo = metadata.info as Record<string, unknown> | undefined;
     const infoVersion = typeof pdfInfo?.PDFHVersion === 'string' ? pdfInfo.PDFHVersion : undefined;
-    const infoConformance = typeof pdfInfo?.PDFHConformance === 'string' ? pdfInfo.PDFHConformance : undefined;
-    const fallbackConformance: ConformanceLevel = isValidConformanceLevel(infoConformance || '')
-      ? infoConformance
-      : 'PDFH-1b';
+    const infoConformance = parseConformance(pdfInfo?.PDFHConformance);
+    const fallbackConformance: ConformanceLevel = infoConformance || 'PDFH-1b';
     const content: PdfhContent = {
       html,
       version: htmlMetadata.version || infoVersion || PDFH_VERSION,
@@ -220,10 +225,8 @@ export async function getPdfhMetadata(pdfBytes: Uint8Array): Promise<{
     const pdfMetadata = await pdfDoc.getMetadata();
     const pdfInfo = pdfMetadata.info as Record<string, unknown> | undefined;
     const infoVersion = typeof pdfInfo?.PDFHVersion === 'string' ? pdfInfo.PDFHVersion : undefined;
-    const infoConformance = typeof pdfInfo?.PDFHConformance === 'string' ? pdfInfo.PDFHConformance : undefined;
-    const fallbackConformance: ConformanceLevel | undefined = isValidConformanceLevel(infoConformance || '')
-      ? infoConformance
-      : undefined;
+    const infoConformance = parseConformance(pdfInfo?.PDFHConformance);
+    const fallbackConformance: ConformanceLevel | undefined = infoConformance;
 
     return {
       isPdfh: true,
