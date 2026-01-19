@@ -4,6 +4,7 @@
  */
 
 import { PDFDocument, PDFName, PDFDict, PDFHexString, AFRelationship } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
 import {
   PdfhWriterOptions,
   PAGE_SIZES,
@@ -12,6 +13,23 @@ import {
   PDFH_EMBEDDED_FILENAME,
 } from '../../types/pdfh';
 import { validateHtml } from './validator';
+
+const UNICODE_FONT_PATH = 'fonts/NotoSans-Regular.ttf';
+
+async function loadUnicodeFont(pdfDoc: PDFDocument) {
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  const fontUrl = `${baseUrl}${UNICODE_FONT_PATH}`;
+
+  pdfDoc.registerFontkit(fontkit);
+
+  const response = await fetch(fontUrl);
+  if (!response.ok) {
+    throw new Error(`Unicode font not found at ${fontUrl}. Add ${UNICODE_FONT_PATH} to public/`);
+  }
+
+  const fontBytes = await response.arrayBuffer();
+  return await pdfDoc.embedFont(fontBytes);
+}
 
 /**
  * Create a PDFH file from HTML content
@@ -71,7 +89,7 @@ export async function createPdfh(options: PdfhWriterOptions): Promise<Uint8Array
 
   let yPosition = height - margins.top;
   const lineHeight = 16;
-  const font = await pdfDoc.embedFont('Helvetica');
+  const font = await loadUnicodeFont(pdfDoc);
 
   // Draw title
   page.drawText(title, {
