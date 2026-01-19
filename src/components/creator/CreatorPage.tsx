@@ -5,7 +5,8 @@
 
 import { useState, useCallback } from 'react';
 import { Button } from '../common/Button';
-import { HtmlEditor, DEFAULT_HTML } from './HtmlEditor';
+import { RichHtmlEditor } from './RichHtmlEditor';
+import { DEFAULT_HTML } from './HtmlEditor';
 import { PdfPreview } from './PdfPreview';
 import { ExportOptions, PageSize, MarginSize } from './ExportOptions';
 import { usePdfhWriter, useLocalStorage } from '../../hooks';
@@ -77,7 +78,7 @@ export function CreatorPage() {
               </Button>
             </div>
           </div>
-          <HtmlEditor value={html} onChange={setHtml} height="min(500px, 50vh)" />
+          <RichHtmlEditor value={html} onChange={setHtml} height="min(500px, 50vh)" />
 
           {/* Validation Messages */}
           {validation && !validation.isValid && (
