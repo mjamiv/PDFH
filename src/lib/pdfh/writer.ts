@@ -11,7 +11,6 @@ import {
   PDFH_VERSION,
   PDFH_EMBEDDED_FILENAME,
 } from '../../types/pdfh';
-import { wrapHtmlWithPdfhSchema } from './schema';
 import { validateHtml } from './validator';
 
 /**
@@ -34,12 +33,7 @@ export async function createPdfh(options: PdfhWriterOptions): Promise<Uint8Array
     throw new Error(`Invalid HTML: ${validation.errors.map(e => e.message).join(', ')}`);
   }
 
-  // Wrap HTML with PDFH schema
-  const pdfhHtml = wrapHtmlWithPdfhSchema(html, {
-    title,
-    conformanceLevel,
-    includeCoordinateMapping,
-  });
+  // Preserve the original HTML bytes to support lossless round-trip extraction.
 
   // Create PDF document
   const pdfDoc = await PDFDocument.create();
@@ -121,7 +115,7 @@ export async function createPdfh(options: PdfhWriterOptions): Promise<Uint8Array
   });
 
   // Embed the HTML content as an attachment
-  await embedHtmlContent(pdfDoc, pdfhHtml);
+  await embedHtmlContent(pdfDoc, html);
 
   // Save and return the PDF bytes
   return await pdfDoc.save();
