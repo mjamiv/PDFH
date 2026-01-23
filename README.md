@@ -1,6 +1,6 @@
 # PDFH - HTML in PDF
 
-A web application to **create** and **view** PDFH files - a new file format that embeds structured HTML content within standard PDF files.
+A web application to **create** and **view** PDFH files - a file format that embeds structured HTML content within standard PDF files.
 
 **Live Demo**: [https://mjamiv.github.io/PDFH/](https://mjamiv.github.io/PDFH/)
 
@@ -15,9 +15,11 @@ PDFH is a file format that combines the universal compatibility of PDF with the 
 ## Features
 
 ### Create PDFH Files
-- Write HTML directly in the Monaco code editor
-- Live preview of how your document will render
+- Rich text editor with Visual/Split/HTML modes
+- Live PDF preview showing how your document will render
+- High-fidelity PDF export using html2canvas + jsPDF
 - Choose between PDFH-1a (full conformance) and PDFH-1b (basic conformance)
+- Configurable page size (Letter, A4, Legal) and margins
 - Download the generated PDFH file
 
 ### View PDFH Files
@@ -26,15 +28,20 @@ PDFH is a file format that combines the universal compatibility of PDF with the 
 - Side-by-side view of PDF rendering and extracted HTML
 - Copy or download the extracted HTML
 
+### Developer Tools
+- Agentation integration for visual feedback during development
+
 ## Tech Stack
 
 - **React 18** - UI framework
 - **TypeScript** - Type safety
 - **Vite** - Build tool
 - **Tailwind CSS** - Styling
-- **pdf-lib** - PDF creation and modification
-- **pdfjs-dist** - PDF rendering
-- **Monaco Editor** - Code editing
+- **pdf-lib** - PDF modification and HTML attachment embedding
+- **jsPDF** - PDF generation
+- **html2canvas** - HTML to canvas rendering for PDF export
+- **pdfjs-dist** - PDF rendering in viewer
+- **Agentation** - Visual feedback for AI coding agents
 
 ## Getting Started
 

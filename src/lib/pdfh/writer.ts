@@ -3,8 +3,9 @@
  * Creates PDFH files by embedding HTML content within PDF
  */
 
-import { PDFDocument, PDFName, PDFDict, PDFHexString, AFRelationship } from 'pdf-lib';
-import fontkit from '@pdf-lib/fontkit';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import { PDFDocument, AFRelationship } from 'pdf-lib';
 import {
   PdfhWriterOptions,
   PAGE_SIZES,
@@ -13,23 +14,6 @@ import {
   PDFH_EMBEDDED_FILENAME,
 } from '../../types/pdfh';
 import { validateHtml } from './validator';
-
-const UNICODE_FONT_PATH = 'fonts/NotoSans-Regular.ttf';
-
-async function loadUnicodeFont(pdfDoc: PDFDocument) {
-  const baseUrl = import.meta.env.BASE_URL || '/';
-  const fontUrl = `${baseUrl}${UNICODE_FONT_PATH}`;
-
-  pdfDoc.registerFontkit(fontkit);
-
-  const response = await fetch(fontUrl);
-  if (!response.ok) {
-    throw new Error(`Unicode font not found at ${fontUrl}. Add ${UNICODE_FONT_PATH} to public/`);
-  }
-
-  const fontBytes = await response.arrayBuffer();
-  return await pdfDoc.embedFont(fontBytes);
-}
 
 /**
  * Create a PDFH file from HTML content
@@ -51,10 +35,11 @@ export async function createPdfh(options: PdfhWriterOptions): Promise<Uint8Array
     throw new Error(`Invalid HTML: ${validation.errors.map(e => e.message).join(', ')}`);
   }
 
-  // Preserve the original HTML bytes to support lossless round-trip extraction.
+  // Render HTML to PDF using html2canvas + jsPDF
+  const pdfBytes = await renderHtmlToPdf(html, title, pageSize, margins);
 
-  // Create PDF document
-  const pdfDoc = await PDFDocument.create();
+  // Load the PDF into pdf-lib to add metadata and HTML attachment
+  const pdfDoc = await PDFDocument.load(pdfBytes);
 
   // Set metadata
   pdfDoc.setTitle(title);
@@ -68,194 +53,196 @@ export async function createPdfh(options: PdfhWriterOptions): Promise<Uint8Array
     pdfDoc.setAuthor(author);
   }
 
-  // Add custom PDFH metadata
-  const infoDict = pdfDoc.context.lookup(pdfDoc.context.trailerInfo.Info) as PDFDict | undefined;
-  if (infoDict) {
-    infoDict.set(PDFName.of('PDFHVersion'), PDFHexString.fromText(PDFH_VERSION));
-    infoDict.set(PDFName.of('PDFHConformance'), PDFHexString.fromText(conformanceLevel));
-  }
-
-  // Create a page with rendered HTML representation
-  const page = pdfDoc.addPage([pageSize.width, pageSize.height]);
-
-  // Draw a simple text representation of the content
-  // In a full implementation, this would use a proper HTML-to-PDF renderer
-  const { width, height } = page.getSize();
-  const contentWidth = width - margins.left - margins.right;
-
-  // Extract text content from HTML for the visual PDF representation
-  const textContent = extractTextFromHtml(html);
-  const lines = wrapText(textContent, contentWidth, 12);
-
-  let yPosition = height - margins.top;
-  const lineHeight = 16;
-  const font = await loadUnicodeFont(pdfDoc);
-
-  // Draw title
-  page.drawText(title, {
-    x: margins.left,
-    y: yPosition,
-    size: 18,
-    font,
-  });
-  yPosition -= 30;
-
-  // Draw content
-  for (const line of lines) {
-    if (yPosition < margins.bottom) {
-      // Add new page if needed
-      const newPage = pdfDoc.addPage([pageSize.width, pageSize.height]);
-      yPosition = height - margins.top;
-      newPage.drawText(line, {
-        x: margins.left,
-        y: yPosition,
-        size: 12,
-        font,
-      });
-    } else {
-      page.drawText(line, {
-        x: margins.left,
-        y: yPosition,
-        size: 12,
-        font,
-      });
-    }
-    yPosition -= lineHeight;
-  }
-
-  // Add footer note about PDFH
-  const firstPage = pdfDoc.getPage(0);
-  firstPage.drawText(`[PDFH Document - ${conformanceLevel}]`, {
-    x: margins.left,
-    y: margins.bottom - 20,
-    size: 8,
-    font,
-    opacity: 0.5,
-  });
-
   // Embed the HTML content as an attachment
-  await embedHtmlContent(pdfDoc, html, effectiveMetadataDate);
+  const htmlBytes = new TextEncoder().encode(html);
+  await pdfDoc.attach(htmlBytes, PDFH_EMBEDDED_FILENAME, {
+    mimeType: 'text/html',
+    description: 'PDFH embedded HTML content',
+    creationDate: effectiveMetadataDate,
+    modificationDate: effectiveMetadataDate,
+    afRelationship: AFRelationship.Source,
+  });
 
   // Save and return the PDF bytes
   return await pdfDoc.save();
 }
 
 /**
- * Embed HTML content in PDF as an embedded file
+ * Render HTML to PDF using html2canvas and jsPDF
  */
-async function embedHtmlContent(
-  pdfDoc: PDFDocument,
+async function renderHtmlToPdf(
   html: string,
-  metadataDate: Date
-): Promise<void> {
-  const htmlBytes = new TextEncoder().encode(html);
+  title: string,
+  pageSize: { width: number; height: number },
+  margins: { top: number; right: number; bottom: number; left: number }
+): Promise<Uint8Array> {
+  // Create a hidden container for rendering
+  const container = document.createElement('div');
+  container.style.cssText = `
+    position: fixed;
+    left: -9999px;
+    top: 0;
+    width: ${pageSize.width - margins.left - margins.right}px;
+    background: white;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    padding: 0;
+  `;
 
-  // Use pdf-lib's built-in attachment method
-  await pdfDoc.attach(htmlBytes, PDFH_EMBEDDED_FILENAME, {
-    mimeType: 'text/html',
-    description: 'PDFH embedded HTML content',
-    creationDate: metadataDate,
-    modificationDate: metadataDate,
-    afRelationship: AFRelationship.Source,
-  });
-}
+  // Wrap HTML with default styles
+  container.innerHTML = `
+    <style>
+      * { box-sizing: border-box; }
+      body, html { margin: 0; padding: 0; }
+      h1, h2, h3, h4, h5, h6 {
+        margin-top: 1em;
+        margin-bottom: 0.5em;
+        line-height: 1.3;
+      }
+      h1 { font-size: 1.8em; }
+      h2 { font-size: 1.4em; }
+      h3 { font-size: 1.2em; }
+      p { margin: 0.8em 0; }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1em 0;
+        font-size: 0.9em;
+      }
+      th, td {
+        border: 1px solid #333;
+        padding: 6px 8px;
+        text-align: left;
+      }
+      th { background-color: #333; color: white; }
+      code {
+        background-color: #f4f4f4;
+        padding: 2px 4px;
+        border-radius: 2px;
+        font-family: monospace;
+        font-size: 0.9em;
+      }
+      pre {
+        background-color: #f4f4f4;
+        padding: 12px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-size: 0.85em;
+      }
+      ul, ol { margin: 0.8em 0; padding-left: 1.5em; }
+      li { margin: 0.3em 0; }
+      a { color: #0066cc; }
+      img { max-width: 100%; height: auto; }
+      .subtitle { color: #555; margin-bottom: 1.5em; }
+      .value-add {
+        background: #f0f7ff;
+        border-left: 3px solid #0066cc;
+        padding: 8px 12px;
+        margin: 1em 0;
+        font-style: italic;
+      }
+    </style>
+    ${html}
+  `;
 
-/**
- * Extract plain text from HTML for PDF visual rendering
- */
-function extractTextFromHtml(html: string): string {
-  // Remove script and style tags with their content
-  let text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  document.body.appendChild(container);
 
-  // Replace block elements with newlines
-  text = text.replace(/<\/(p|div|h[1-6]|li|tr|br|hr)[^>]*>/gi, '\n');
-  text = text.replace(/<(br|hr)[^>]*\/?>/gi, '\n');
+  try {
+    // Render to canvas
+    const canvas = await html2canvas(container, {
+      scale: 2, // Higher quality
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+    });
 
-  // Replace list items with bullets
-  text = text.replace(/<li[^>]*>/gi, '\n• ');
+    // Calculate dimensions
+    const imgWidth = pageSize.width - margins.left - margins.right;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const pageHeight = pageSize.height - margins.top - margins.bottom;
 
-  // Remove all remaining HTML tags
-  text = text.replace(/<[^>]+>/g, '');
+    // Create PDF with jsPDF (dimensions in points)
+    const pdf = new jsPDF({
+      orientation: pageSize.width > pageSize.height ? 'landscape' : 'portrait',
+      unit: 'pt',
+      format: [pageSize.width, pageSize.height],
+    });
 
-  // Decode HTML entities
-  text = decodeHtmlEntities(text);
+    // Add title to PDF metadata
+    pdf.setProperties({ title });
 
-  // Clean up whitespace
-  text = text.replace(/\n\s*\n/g, '\n\n');
-  text = text.trim();
+    // If content fits on one page, add it directly
+    if (imgHeight <= pageHeight) {
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      pdf.addImage(
+        imgData,
+        'JPEG',
+        margins.left,
+        margins.top,
+        imgWidth,
+        imgHeight
+      );
+    } else {
+      // Multi-page: split content across pages
+      let remainingHeight = imgHeight;
+      let sourceY = 0;
+      let pageNum = 0;
 
-  return text;
-}
-
-/**
- * Decode common HTML entities
- */
-function decodeHtmlEntities(text: string): string {
-  const entities: Record<string, string> = {
-    '&amp;': '&',
-    '&lt;': '<',
-    '&gt;': '>',
-    '&quot;': '"',
-    '&#039;': "'",
-    '&apos;': "'",
-    '&nbsp;': ' ',
-    '&copy;': '©',
-    '&reg;': '®',
-    '&trade;': '™',
-    '&mdash;': '—',
-    '&ndash;': '–',
-    '&hellip;': '…',
-  };
-
-  let result = text;
-  for (const [entity, char] of Object.entries(entities)) {
-    result = result.replace(new RegExp(entity, 'g'), char);
-  }
-
-  // Handle numeric entities
-  result = result.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
-  result = result.replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
-
-  return result;
-}
-
-/**
- * Wrap text to fit within a given width
- */
-function wrapText(text: string, maxWidth: number, fontSize: number): string[] {
-  const lines: string[] = [];
-  const avgCharWidth = fontSize * 0.5; // Approximate
-  const charsPerLine = Math.floor(maxWidth / avgCharWidth);
-
-  const paragraphs = text.split('\n');
-
-  for (const paragraph of paragraphs) {
-    if (!paragraph.trim()) {
-      lines.push('');
-      continue;
-    }
-
-    const words = paragraph.split(/\s+/);
-    let currentLine = '';
-
-    for (const word of words) {
-      if (currentLine.length + word.length + 1 <= charsPerLine) {
-        currentLine += (currentLine ? ' ' : '') + word;
-      } else {
-        if (currentLine) {
-          lines.push(currentLine);
+      while (remainingHeight > 0) {
+        if (pageNum > 0) {
+          pdf.addPage([pageSize.width, pageSize.height]);
         }
-        currentLine = word;
+
+        // Calculate how much content to draw on this page
+        const drawHeight = Math.min(pageHeight, remainingHeight);
+
+        // Calculate the source slice from the original canvas
+        const sliceHeight = (drawHeight / imgHeight) * canvas.height;
+        const sliceY = (sourceY / imgHeight) * canvas.height;
+
+        // Create a temporary canvas for this page's portion
+        const pageCanvas = document.createElement('canvas');
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = Math.ceil(sliceHeight);
+        const ctx = pageCanvas.getContext('2d');
+
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+          ctx.drawImage(
+            canvas,
+            0, sliceY,                          // source x, y
+            canvas.width, sliceHeight,          // source width, height
+            0, 0,                               // dest x, y
+            pageCanvas.width, pageCanvas.height // dest width, height
+          );
+        }
+
+        // Add image to PDF
+        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+        pdf.addImage(
+          pageImgData,
+          'JPEG',
+          margins.left,
+          margins.top,
+          imgWidth,
+          drawHeight
+        );
+
+        sourceY += drawHeight;
+        remainingHeight -= drawHeight;
+        pageNum++;
       }
     }
 
-    if (currentLine) {
-      lines.push(currentLine);
-    }
+    // Get PDF as array buffer
+    const pdfOutput = pdf.output('arraybuffer');
+    return new Uint8Array(pdfOutput);
+  } finally {
+    // Clean up
+    document.body.removeChild(container);
   }
-
-  return lines;
 }
 
 export { validateHtml };

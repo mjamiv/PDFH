@@ -11,7 +11,20 @@ import { PdfPreview } from './PdfPreview';
 import { ExportOptions, PageSize, MarginSize } from './ExportOptions';
 import { usePdfhWriter, useLocalStorage } from '../../hooks';
 import { useToastContext } from '../common/ToastContainer';
-import { ConformanceLevel } from '../../types/pdfh';
+import { ConformanceLevel, PAGE_SIZES, PageMargins } from '../../types/pdfh';
+
+const PAGE_SIZE_MAP: Record<PageSize, { width: number; height: number }> = {
+  letter: PAGE_SIZES.LETTER,
+  a4: PAGE_SIZES.A4,
+  legal: PAGE_SIZES.LEGAL,
+};
+
+const MARGIN_MAP: Record<MarginSize, PageMargins> = {
+  none: { top: 0, right: 0, bottom: 0, left: 0 },
+  narrow: { top: 36, right: 36, bottom: 36, left: 36 },    // 0.5 inch
+  normal: { top: 72, right: 72, bottom: 72, left: 72 },    // 1 inch
+  wide: { top: 108, right: 108, bottom: 108, left: 108 },  // 1.5 inch
+};
 
 export function CreatorPage() {
   const [html, setHtml] = useState(DEFAULT_HTML);
@@ -31,6 +44,8 @@ export function CreatorPage() {
       title,
       conformanceLevel,
       includeCoordinateMapping: conformanceLevel === 'PDFH-1a' && includeCoordinateMapping,
+      pageSize: PAGE_SIZE_MAP[pageSize],
+      margins: MARGIN_MAP[marginSize],
     });
 
     if (result) {
@@ -39,7 +54,7 @@ export function CreatorPage() {
     } else if (error) {
       toast.error('Failed to generate PDFH file');
     }
-  }, [html, title, conformanceLevel, includeCoordinateMapping, generatePdfh, downloadPdfh, toast, error]);
+  }, [html, title, conformanceLevel, includeCoordinateMapping, pageSize, marginSize, generatePdfh, downloadPdfh, toast, error]);
 
   const handleLoadSample = useCallback(() => {
     setHtml(DEFAULT_HTML);

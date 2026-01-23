@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Agentation } from 'agentation'
 import { ThemeProvider } from './context/ThemeContext'
 import { ToastProvider } from './components/common/ToastContainer'
 import Header from './components/common/Header'
@@ -29,6 +30,7 @@ function App() {
             </div>
           </footer>
         </div>
+        <Agentation />
       </ToastProvider>
     </ThemeProvider>
   )
